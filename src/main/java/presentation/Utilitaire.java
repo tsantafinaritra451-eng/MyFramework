@@ -1,4 +1,4 @@
-package src.main.java.presentation;
+package presentation;
 
 import java.io.File;
 import java.util.ArrayList;

@@ -10,9 +10,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-
-import presentation.Utilitaire;
-import mg.itu.tsanta.annotation.Controller;
+import src.main.java.mg.itu.tsanta.annotation.Controller;
 
 public class FontControllerServlet extends HttpServlet {
         public FontControllerServlet() {
@@ -35,7 +33,7 @@ public class FontControllerServlet extends HttpServlet {
               System.out.println("Framwork OK"+ this.listControllers.size());                  
                         
         }catch (Exception e){
-                throw new ServerException("Erreur initiation", e);
+                throw new ServletException("Erreur initialisation", e);
         }
         
 }

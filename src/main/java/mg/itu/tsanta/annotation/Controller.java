@@ -1,4 +1,4 @@
-package mg.itu.tsanta.annotation;
+package src.main.java.mg.itu.tsanta.annotation;
 
 import java.lang.annotation.Target;
 import java.lang.annotation.ElementType;
