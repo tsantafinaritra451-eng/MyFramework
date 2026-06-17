@@ -8,7 +8,7 @@ SRC_DIR="src/main/java"
 
 
 
-echo "============= COMPILATION DU FRAMEWORK ============="
+echo "============= COMPIServletExceptionLATION DU FRAMEWORK ============="
 
 # 1. Nettoyage
 rm -rf $BIN_DIR
