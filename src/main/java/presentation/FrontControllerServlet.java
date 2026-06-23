@@ -21,7 +21,7 @@ public class FrontControllerServlet extends HttpServlet {
         }
 
         private List<Method> listUrl = new ArrayList<>();
-     
+
         @Override
         public void init() throws ServletException {
                 try {
@@ -30,11 +30,13 @@ public class FrontControllerServlet extends HttpServlet {
                         for (String className : toutesClasses) {
                                 Class<?> clazz = Class.forName(className);
                                 Method[] toutesMethodes = clazz.getDeclaredMethods();
-                                for (Method toutMethode : toutesMethodes) {
-                                        if (toutMethode.isAnnotationPresent(Url.class)) {
-                                                Url annotation = toutMethode.getAnnotation(Url.class);
-                                                String route = annotation.value();
-                                                this.listUrl.add(toutMethode);
+                                if (clazz.isAnnotationPresent(Controller.class)) {
+                                        for (Method toutMethode : toutesMethodes) {
+                                                if (toutMethode.isAnnotationPresent(Url.class)) {
+                                             
+                                                        this.listUrl.add(toutMethode);
+
+                                                }
 
                                         }
 
@@ -76,12 +78,12 @@ public class FrontControllerServlet extends HttpServlet {
                 for (Method urlDiso : listUrl) {
                         Url annotation = urlDiso.getAnnotation(Url.class);
                         String routeDispo = annotation.value();
-                        String nomClassDispo= urlDiso.getDeclaringClass().getName();
+                        String nomClassDispo = urlDiso.getDeclaringClass().getName();
                         String nomMethodeDispo = urlDiso.getName();
 
                         out.println("   URL      : " + routeDispo);
-                        out.println("   Classe   : " + nomMethodeDispo);
-                        out.println("   Methode  : " + nomClassDispo);
+                        out.println("   Methode   : " + nomMethodeDispo);
+                        out.println("   Class  : " + nomClassDispo);
 
                 }
 
