@@ -7,9 +7,13 @@ public class Mapping {
     public Mapping(String className, String method) {
         this.className = className;
         this.method = method;
-       
     }
 
-    public String getClassName() { return className; }
-    public String getMethod() { return method; }
+    public String getClassName() { 
+        return className; 
+    }
+
+    public String getMethod() { 
+        return method; 
+    }
 }
