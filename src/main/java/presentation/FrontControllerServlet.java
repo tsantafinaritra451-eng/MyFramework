@@ -85,7 +85,6 @@ public class FrontControllerServlet extends HttpServlet {
                                 return;
 
                         } catch (Exception e) {
-                                // Si le code du développeur plante, on capture l'erreur proprement dans Tomcat
                                 throw new ServletException("Erreur lors de l'exécution du contrôleur : "
                                                 + mappingTrouve.getClassName(), e);
                         }
