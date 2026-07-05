@@ -2,8 +2,9 @@ package presentation;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.lang.reflect.Method;
 
 import jakarta.servlet.ServletException;
@@ -20,7 +21,7 @@ public class FrontControllerServlet extends HttpServlet {
                 super();
         }
 
-        private List<Method> listUrl = new ArrayList<>();
+        private Map<UrlMethod, Mapping> listUrl = new HashMap<>();
 
         @Override
         public void init() throws ServletException {
@@ -33,15 +34,17 @@ public class FrontControllerServlet extends HttpServlet {
                                 if (clazz.isAnnotationPresent(Controller.class)) {
                                         for (Method toutMethode : toutesMethodes) {
                                                 if (toutMethode.isAnnotationPresent(Url.class)) {
-                                             
-                                                        this.listUrl.add(toutMethode);
+                                                        Url annotation = toutMethode.getAnnotation(Url.class);
+                                                        String route = annotation.value();
 
+                                                        UrlMethod key = new UrlMethod(route, "GET");
+                                                        Mapping value = new Mapping(clazz.getName(),
+                                                                        toutMethode.getName());
+
+                                                        this.listUrl.put(key, value);
                                                 }
-
                                         }
-
                                 }
-
                         }
 
                         System.out.println("Framework OK " + this.listUrl.size());
@@ -56,37 +59,48 @@ public class FrontControllerServlet extends HttpServlet {
                 response.setContentType("text/plain");
                 PrintWriter out = response.getWriter();
                 String url = request.getPathInfo();
+                if (url == null)
+                        url = "/";
 
-                for (Method listeUrl : listUrl) {
-                        Url annotation = listeUrl.getAnnotation(Url.class);
-                        String route = annotation.value();
-                        if (route.equals(url)) {
-                                String nomClass = listeUrl.getDeclaringClass().getName();
-                                String nomMethode = listeUrl.getName();
+                String methodHttp = request.getMethod();
 
-                                out.println("Url trouver");
-                                out.println("methode:" + nomMethode);
-                                out.println("class:" + nomClass);
+                UrlMethod cleRecherche = new UrlMethod(url, methodHttp);
+                Mapping mappingTrouve = listUrl.get(cleRecherche);
+
+                if (mappingTrouve != null) {
+                        try {
+                                Class<?> clazz = Class.forName(mappingTrouve.getClassName());
+
+                                Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
+
+                                Method methodeAExecuter = clazz.getDeclaredMethod(mappingTrouve.getMethod());
+
+                                Object resultat = methodeAExecuter.invoke(controllerInstance);
+
+                                
+                                if (resultat != null) {
+                                        out.println("Résultat de l'exécution : " + resultat.toString());
+                                }
+
                                 return;
 
+                        } catch (Exception e) {
+                                throw new ServletException("Erreur lors de l'exécution du contrôleur : "
+                                                + mappingTrouve.getClassName(), e);
                         }
-
                 }
-                out.println("cette url" + url + "ne contient pas annotation");
+
+                out.println("cette url " + url + " avec la methode " + methodHttp + " ne contient pas annotation");
                 out.println("les url disponible avec leur methode et classe sonr:");
 
-                for (Method urlDiso : listUrl) {
-                        Url annotation = urlDiso.getAnnotation(Url.class);
-                        String routeDispo = annotation.value();
-                        String nomClassDispo = urlDiso.getDeclaringClass().getName();
-                        String nomMethodeDispo = urlDiso.getName();
+                for (Map.Entry<UrlMethod, Mapping> entry : listUrl.entrySet()) {
+                        UrlMethod urlDiso = entry.getKey();
+                        Mapping mappingDispo = entry.getValue();
 
-                        out.println("   URL      : " + routeDispo);
-                        out.println("   Methode   : " + nomMethodeDispo);
-                        out.println("   Class  : " + nomClassDispo);
-
+                        out.println("   URL      : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]");
+                        out.println("   Methode   : " + mappingDispo.getMethod());
+                        out.println("   Class  : " + mappingDispo.getClassName());
                 }
-
         }
 
         @Override

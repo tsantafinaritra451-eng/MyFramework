@@ -9,6 +9,11 @@ public class Mapping {
         this.method = method;
     }
 
-    public String getClassName() { return className; }
-    public String getMethod() { return method; }
+    public String getClassName() { 
+        return className; 
+    }
+
+    public String getMethod() { 
+        return method; 
+    }
 }
