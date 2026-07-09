@@ -2,104 +2,93 @@ package presentation;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.lang.reflect.Method;
 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-
-import mg.itu.tsanta.annotation.Controller;
-import mg.itu.tsanta.annotation.Url;
+import jakarta.servlet.ServletContext;
 
 public class FrontControllerServlet extends HttpServlet {
         public FrontControllerServlet() {
                 super();
         }
 
-        private Map<UrlMethod, Mapping> listUrl = new HashMap<>();
+        private Map<UrlMethod, Mapping> listUrl;
+        private String prefix;
+        private String suffix;
 
         @Override
         public void init() throws ServletException {
-                try {
-                        List<String> toutesClasses = Utilitaire.ScanneClass("controllers");
-
-                        for (String className : toutesClasses) {
-                                Class<?> clazz = Class.forName(className);
-                                Method[] toutesMethodes = clazz.getDeclaredMethods();
-                                if (clazz.isAnnotationPresent(Controller.class)) {
-                                        for (Method toutMethode : toutesMethodes) {
-                                                if (toutMethode.isAnnotationPresent(Url.class)) {
-                                                        Url annotation = toutMethode.getAnnotation(Url.class);
-                                                        String route = annotation.value();
-
-                                                        UrlMethod key = new UrlMethod(route, "GET");
-                                                        Mapping value = new Mapping(clazz.getName(),
-                                                                        toutMethode.getName());
-
-                                                        this.listUrl.put(key, value);
-                                                }
-                                        }
-                                }
-                        }
-
-                        System.out.println("Framework OK " + this.listUrl.size());
-
-                } catch (Exception e) {
-                        throw new ServletException("Erreur initialisation", e);
+                this.listUrl = (Map<UrlMethod, Mapping>) getServletContext().getAttribute("mappingUrls");
+                if (this.listUrl == null) {
+                        throw new ServletException("Le mapping des URL n'a pas été initialisé par le Listener.");
                 }
+                this.prefix = getServletContext().getInitParameter("viewPrefix");
+                this.suffix = getServletContext().getInitParameter("viewSuffix");
         }
 
         protected void processRequest(HttpServletRequest request, HttpServletResponse response)
                         throws ServletException, IOException {
-                response.setContentType("text/plain");
-                PrintWriter out = response.getWriter();
                 String url = request.getPathInfo();
-                if (url == null)
-                        url = "/";
+                if (url == null || url.equals("/")) {
+                        url = request.getServletPath();
+                }
 
-                String methodHttp = request.getMethod();
+                String methodHttp = request.getMethod().toUpperCase();
 
                 UrlMethod cleRecherche = new UrlMethod(url, methodHttp);
                 Mapping mappingTrouve = listUrl.get(cleRecherche);
 
+                response.setContentType("text/html;charset=UTF-8");
+                PrintWriter out = response.getWriter();
+
                 if (mappingTrouve != null) {
                         try {
-                                Class<?> clazz = Class.forName(mappingTrouve.getClassName());
-
+                                Class<?> clazz = mappingTrouve.getControllerInstance();
                                 Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
-
-                                Method methodeAExecuter = clazz.getDeclaredMethod(mappingTrouve.getMethod());
-
+                                Method methodeAExecuter = mappingTrouve.getMethode();
+                                
                                 Object resultat = methodeAExecuter.invoke(controllerInstance);
 
-                                
-                                if (resultat != null) {
-                                        out.println("Résultat de l'exécution : " + resultat.toString());
-                                }
+                                if (resultat instanceof ModAndView) {
+                                        ModAndView mv = (ModAndView) resultat;
 
+                                        for (Map.Entry<String, Object> attribut : mv.getAttribut().entrySet()) {
+                                                request.setAttribute(attribut.getKey(), attribut.getValue());
+                                        }
+
+                                        String prochaineVue = mv.getViewName();
+                                        String cheminComplet = this.prefix + prochaineVue + this.suffix;
+                                        RequestDispatcher dispatcher = request.getRequestDispatcher(cheminComplet);
+                                        dispatcher.forward(request, response);
+                                } else {
+                                        out.println("<h3>Route trouvée mais aucun ModAndView renvoyé.</h3>");
+                                        if (resultat != null) {
+                                                out.println("Résultat brut : " + resultat.toString());
+                                        }
+                                }
                                 return;
 
                         } catch (Exception e) {
-                                throw new ServletException("Erreur lors de l'exécution du contrôleur : "
-                                                + mappingTrouve.getClassName(), e);
+                                e.printStackTrace(out);
+                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage() + "</h3>");
+                                return;
                         }
                 }
 
-                out.println("cette url " + url + " avec la methode " + methodHttp + " ne contient pas annotation");
-                out.println("les url disponible avec leur methode et classe sonr:");
-
+                out.println("<h3> Aucune méthode ne correspond à l'URL : " + url + " [" + methodHttp + "]</h3>");
+                out.println("<h3>Liste des routes disponibles :</h3>");
                 for (Map.Entry<UrlMethod, Mapping> entry : listUrl.entrySet()) {
                         UrlMethod urlDiso = entry.getKey();
                         Mapping mappingDispo = entry.getValue();
 
-                        out.println("   URL      : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]");
-                        out.println("   Methode   : " + mappingDispo.getMethod());
-                        out.println("   Class  : " + mappingDispo.getClassName());
+                        out.println("   URL : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]<br>");
+                        out.println("   Méthode : " + mappingDispo.getMethode().getName() + "()<br>");
+                        out.println("   Classe : " + mappingDispo.getControllerInstance().getName() + "<br><br>");
                 }
         }
 
