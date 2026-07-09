@@ -1,6 +1,5 @@
 package presentation;
 
-
 import java.util.Objects;
 
 public class UrlMethod {
@@ -22,10 +21,8 @@ public class UrlMethod {
     public boolean equals(Object o) {
         if (this == o) return true; 
         if (o == null || getClass() != o.getClass()) return false;
-        
         UrlMethod that = (UrlMethod) o;
-        return Objects.equals(url, that.url) && 
-               Objects.equals(methodHttp, that.methodHttp);
+        return Objects.equals(url, that.url) && Objects.equals(methodHttp, that.methodHttp);
     }
 
     @Override
