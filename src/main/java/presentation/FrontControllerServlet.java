@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.ServletContext;
 
+
 public class FrontControllerServlet extends HttpServlet {
         public FrontControllerServlet() {
                 super();
@@ -52,7 +53,28 @@ public class FrontControllerServlet extends HttpServlet {
                                 Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
                                 Method methodeAExecuter = mappingTrouve.getMethode();
                                 
-                                Object resultat = methodeAExecuter.invoke(controllerInstance);
+                                ServletContext servletContext = getServletContext();
+                                Object springContext=null;
+                                try{
+                                        springContext = servletContext.getAttribute(
+                                                "org.springframework.web.context.WebApplicationContext.ROOT"
+                                        );
+                                }catch(Exception e){
+
+                                }
+
+                                Class<?>[] typeParametres = methodeAExecuter.getParameterTypes();
+                                Object[] argument = new Object[typeParametres.length];
+                                
+                                for(int i=0; i< typeParametres.length; i++){
+                                        if(typeParametres[i].getName().equals("org.springframework.context.ApplicationContext")){
+                                                argument[i]= springContext;
+
+                                        }else{
+                                                argument[i]=null;
+                                        }
+                                }
+                                Object resultat= methodeAExecuter.invoke(controllerInstance, argument);
 
                                 if (resultat instanceof ModAndView) {
                                         ModAndView mv = (ModAndView) resultat;
