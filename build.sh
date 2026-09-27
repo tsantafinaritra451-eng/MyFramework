@@ -1,42 +1,34 @@
 #!/bin/bash
 
-TOMCAT_LIB="/home/tsanta/tomcat/lib" 
+TOMCAT_LIB="/home/tsanta/tomcat/lib"
+FRAMEWORK_LIB="lib"
 
 JAR_NAME="framework.jar"
 BIN_DIR="bin"
 SRC_DIR="src/main/java"
 
+echo "Compilation du framework..."
 
-
-echo "============= COMPIServletExceptionLATION DU FRAMEWORK ============="
-
-# 1. Nettoyage
 rm -rf $BIN_DIR
 rm -f $JAR_NAME
-mkdir $BIN_DIR
+mkdir -p $BIN_DIR
 
-# 2. Compilation
-echo "compilation"
 find $SRC_DIR -name "*.java" > sources.txt
-javac -cp "$TOMCAT_LIB/*" -d $BIN_DIR @sources.txt
+javac -cp "$TOMCAT_LIB/*:$FRAMEWORK_LIB/*" -d $BIN_DIR @sources.txt
 
 if [ $? -ne 0 ]; then
-    echo " Erreur de compilation !"
-    rm sources.txt
+    echo "Erreur de compilation !"
+    rm -f sources.txt
     exit 1
 fi
-rm sources.txt
+rm -f sources.txt
 
-# 3. Création du JAR
-echo "[2/3] Création du fichier $JAR_NAME..."
+echo "Creation du JAR..."
 jar cf $JAR_NAME -C $BIN_DIR .
 
 if [ $? -ne 0 ]; then
-    echo " Erreur lors de la création du JAR !"
+    echo "Erreur lors de la creation du JAR !"
     exit 1
 fi
 
-
-
-echo " Framework packagé avec succès en $JAR_NAME !"
-echo "===================================================="
+echo "Framework package avec succes : $JAR_NAME"

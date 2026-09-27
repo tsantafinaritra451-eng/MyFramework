@@ -2,16 +2,18 @@ package presentation;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Map;
 import java.lang.reflect.Method;
+import java.util.Map;
+
+import com.google.gson.Gson;
 
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.ServletContext;
-
+import mg.itu.tsanta.annotation.Api;
 
 public class FrontControllerServlet extends HttpServlet {
         public FrontControllerServlet() {
@@ -44,37 +46,56 @@ public class FrontControllerServlet extends HttpServlet {
                 UrlMethod cleRecherche = new UrlMethod(url, methodHttp);
                 Mapping mappingTrouve = listUrl.get(cleRecherche);
 
-                response.setContentType("text/html;charset=UTF-8");
-                PrintWriter out = response.getWriter();
-
                 if (mappingTrouve != null) {
                         try {
                                 Class<?> clazz = mappingTrouve.getControllerInstance();
                                 Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
                                 Method methodeAExecuter = mappingTrouve.getMethode();
-                                
+
                                 ServletContext servletContext = getServletContext();
-                                Object springContext=null;
-                                try{
+                                Object springContext = null;
+                                try {
                                         springContext = servletContext.getAttribute(
-                                                "org.springframework.web.context.WebApplicationContext.ROOT"
-                                        );
-                                }catch(Exception e){
+                                                        "org.springframework.web.context.WebApplicationContext.ROOT");
+                                } catch (Exception e) {
 
                                 }
 
                                 Class<?>[] typeParametres = methodeAExecuter.getParameterTypes();
                                 Object[] argument = new Object[typeParametres.length];
-                                
-                                for(int i=0; i< typeParametres.length; i++){
-                                        if(typeParametres[i].getName().equals("org.springframework.context.ApplicationContext")){
-                                                argument[i]= springContext;
 
-                                        }else{
-                                                argument[i]=null;
+                                for (int i = 0; i < typeParametres.length; i++) {
+                                        if (typeParametres[i].getName()
+                                                        .equals("org.springframework.context.ApplicationContext")) {
+                                                argument[i] = springContext;
+                                        } else {
+                                                argument[i] = null;
                                         }
                                 }
-                                Object resultat= methodeAExecuter.invoke(controllerInstance, argument);
+                                Object resultat = methodeAExecuter.invoke(controllerInstance, argument);
+
+                                boolean isApi = clazz.isAnnotationPresent(Api.class)
+                                                || methodeAExecuter.isAnnotationPresent(Api.class);
+
+                                if (isApi) {
+                                        response.setContentType("application/json; charset=UTF-8");
+                                        PrintWriter out = response.getWriter();
+                                        Gson gson = new Gson();
+
+                                        if (resultat instanceof ModAndView) {
+                                                ModAndView mv = (ModAndView) resultat;
+                                                String jsonResponse = gson.toJson(mv.getAttribut());
+                                                out.println(jsonResponse);
+                                        } else {
+                                                String jsonResponse = gson.toJson(resultat);
+                                                out.println(jsonResponse);
+                                        }
+                                        out.flush();
+                                        return;
+                                }
+
+                                response.setContentType("text/html; charset=UTF-8");
+                                PrintWriter out = response.getWriter();
 
                                 if (resultat instanceof ModAndView) {
                                         ModAndView mv = (ModAndView) resultat;
@@ -96,12 +117,17 @@ public class FrontControllerServlet extends HttpServlet {
                                 return;
 
                         } catch (Exception e) {
+                                response.setContentType("text/html; charset=UTF-8");
+                                PrintWriter out = response.getWriter();
                                 e.printStackTrace(out);
-                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage() + "</h3>");
+                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage()
+                                                + "</h3>");
                                 return;
                         }
                 }
 
+                response.setContentType("text/html; charset=UTF-8");
+                PrintWriter out = response.getWriter();
                 out.println("<h3> Aucune méthode ne correspond à l'URL : " + url + " [" + methodHttp + "]</h3>");
                 out.println("<h3>Liste des routes disponibles :</h3>");
                 for (Map.Entry<UrlMethod, Mapping> entry : listUrl.entrySet()) {
