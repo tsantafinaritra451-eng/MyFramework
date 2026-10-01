@@ -3,6 +3,7 @@ package presentation;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Map;
 
 import com.google.gson.Gson;
@@ -61,17 +62,61 @@ public class FrontControllerServlet extends HttpServlet {
 
                                 }
 
-                                Class<?>[] typeParametres = methodeAExecuter.getParameterTypes();
-                                Object[] argument = new Object[typeParametres.length];
+                                // Class<?>[] typeParametres = methodeAExecuter.getParameterTypes();
+                                // Object[] argument = new Object[typeParametres.length];
 
-                                for (int i = 0; i < typeParametres.length; i++) {
-                                        if (typeParametres[i].getName()
+                                // for (int i = 0; i < typeParametres.length; i++) {
+                                // if (typeParametres[i].getName()
+                                // .equals("org.springframework.context.ApplicationContext")) {
+                                // argument[i] = springContext;
+                                // } else {
+                                // argument[i] = null;
+                                // }
+                                // }
+
+                                Parameter[] parametres = methodeAExecuter.getParameters();
+                                Object[] argument = new Object[parametres.length];
+
+                                for (int i = 0; i < parametres.length; i++) {
+                                        Parameter param = parametres[i];
+                                        Class<?> paramType = param.getType();
+
+                                        if (paramType.getName()
                                                         .equals("org.springframework.context.ApplicationContext")) {
                                                 argument[i] = springContext;
                                         } else {
-                                                argument[i] = null;
+                                                String paramName = param.getName(); 
+                                                                                    
+                                                String reqValue = request.getParameter(paramName);
+
+                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
+                                                        if (paramType == int.class || paramType == Integer.class) {
+                                                                argument[i] = Integer.parseInt(reqValue);
+                                                        } else if (paramType == double.class
+                                                                        || paramType == Double.class) {
+                                                                argument[i] = Double.parseDouble(reqValue);
+                                                        } else if (paramType == boolean.class
+                                                                        || paramType == Boolean.class) {
+                                                                argument[i] = Boolean.parseBoolean(reqValue);
+                                                        } else {
+                                                                argument[i] = reqValue;
+                                                        }
+                                                } else {
+                                                        // Valeurs par défaut si le paramètre est absent
+                                                        if (paramType.isPrimitive()) {
+                                                                if (paramType == int.class)
+                                                                        argument[i] = 0;
+                                                                else if (paramType == double.class)
+                                                                        argument[i] = 0.0;
+                                                                else if (paramType == boolean.class)
+                                                                        argument[i] = false;
+                                                        } else {
+                                                                argument[i] = null;
+                                                        }
+                                                }
                                         }
                                 }
+
                                 Object resultat = methodeAExecuter.invoke(controllerInstance, argument);
 
                                 boolean isApi = clazz.isAnnotationPresent(Api.class)
