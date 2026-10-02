@@ -14,7 +14,8 @@ rm -f $JAR_NAME
 mkdir -p $BIN_DIR
 
 find $SRC_DIR -name "*.java" > sources.txt
-javac -cp "$TOMCAT_LIB/*:$FRAMEWORK_LIB/*" -d $BIN_DIR @sources.txt
+
+javac -parameters -cp "$TOMCAT_LIB/*:$FRAMEWORK_LIB/*" -d $BIN_DIR @sources.txt
 
 if [ $? -ne 0 ]; then
     echo "Erreur de compilation !"
