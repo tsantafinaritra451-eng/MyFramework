@@ -1,0 +1,72 @@
+for (int i = 0; i < parametres.length; i++) {
+                                        Parameter param = parametres[i];
+                                        Class<?> paramType = param.getType();
+
+                                        // 1. Contexte Spring
+                                        if (paramType.getName()
+                                                        .equals("org.springframework.context.ApplicationContext")) {
+                                                argument[i] = springContext;
+                                        }
+                                        // 2. Types simples (String, Primitifs, Wrappers)
+                                        else if (isSimpleType(paramType)) {
+                                                String paramName = param.getName();
+                                                String reqValue = request.getParameter(paramName);
+                                                argument[i] = convertSimpleType(paramType, reqValue);
+                                        }
+                                        // 3. Objet complexe (ex: Employe)
+                                        else {
+                                                try {
+                                                        // Instanciation de l'objet (ex: new Employe())
+                                                        Object objectInstance = paramType.getDeclaredConstructor()
+                                                                        .newInstance();
+
+                                                        // Parcours de tous les champs de la classe
+                                                        Field[] fields = paramType.getDeclaredFields();
+                                                        for (Field field : fields) {
+                                                                field.setAccessible(true); // Permet d'accéder aux
+                                                                                           // champs private
+
+                                                                String fieldName = field.getName();
+                                                                String reqValue = request.getParameter(fieldName);
+
+                                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
+                                                                        Object convertedValue = convertSimpleType(
+                                                                                        field.getType(), reqValue);
+                                                                        field.set(objectInstance, convertedValue);
+                                                                }
+                                                        }
+                                                        argument[i] = objectInstance;
+                                                } catch (Exception e) {
+                                                        argument[i] = null;
+                                                }
+                                        }
+                                }
+
+
+
+algo :
+Pour chaque paramètre (i) de la méthode :
+
+    1. Récupérer le type du paramètre (Class<?> type = param.getType())
+
+    2. SI type == ApplicationContext
+           argument[i] = springContext
+
+    3. SINON SI type est un type simple
+           nom = param.getName()
+           valeurTexte = request.getParameter(nom)
+           argument[i] = conversion(type, valeurTexte)
+
+    4. SINON (c'est un objet complexe)
+           Créer une instance de la classe (newInstance)
+           
+           Pour chaque champ (field) de cette classe :
+               Rendre le champ accessible (setAccessible(true))
+               Nom du champ = field.getName()
+               Valeur du formulaire = request.getParameter(nomDuChamp)
+               
+               Si Valeur du formulaire existe :
+                   Valeur convertie = conversion(typeDuChamp, Valeur du formulaire)
+                   Remplir le champ dans l'instance (field.set(instance, Valeur convertie))
+           
+           argument[i] = instance créée

@@ -33,3 +33,4 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Framework package avec succes : $JAR_NAME"
+
