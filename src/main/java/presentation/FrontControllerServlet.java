@@ -2,6 +2,7 @@ package presentation;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Map;
@@ -14,9 +15,12 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
+import javax.management.ObjectInstance;
 import mg.itu.tsanta.annotation.Api;
 
 public class FrontControllerServlet extends HttpServlet {
+
         public FrontControllerServlet() {
                 super();
         }
@@ -62,59 +66,42 @@ public class FrontControllerServlet extends HttpServlet {
 
                                 }
 
-                                // Class<?>[] typeParametres = methodeAExecuter.getParameterTypes();
-                                // Object[] argument = new Object[typeParametres.length];
-
-                                // for (int i = 0; i < typeParametres.length; i++) {
-                                // if (typeParametres[i].getName()
-                                // .equals("org.springframework.context.ApplicationContext")) {
-                                // argument[i] = springContext;
-                                // } else {
-                                // argument[i] = null;
-                                // }
-                                // }
-
                                 Parameter[] parametres = methodeAExecuter.getParameters();
                                 Object[] argument = new Object[parametres.length];
 
-                                for (int i = 0; i < parametres.length; i++) {
+                                for (int i = 0; i < argument.length; i++) {
                                         Parameter param = parametres[i];
                                         Class<?> paramType = param.getType();
-
                                         if (paramType.getName()
                                                         .equals("org.springframework.context.ApplicationContext")) {
                                                 argument[i] = springContext;
-                                        } else {
-                                                String paramName = param.getName(); 
-                                                                                    
+                                        } else if (isSimpleType(paramType)) {
+                                                String paramName = param.getName();
                                                 String reqValue = request.getParameter(paramName);
+                                                argument[i] = convertSimpleType(paramType, reqValue);
+                                        } else {
+                                                try {
+                                                        Object ObjectInstance = paramType.getDeclaredConstructor()
+                                                                        .newInstance();
+                                                        Field[] Fields = paramType.getDeclaredFields();
+                                                        for (Field field : Fields) {
+                                                                field.setAccessible(true);
+                                                                String fieldName = field.getName();
+                                                                String reqValue = request.getParameter(fieldName);
+                                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
+                                                                        Object convertObject = convertSimpleType(field.getType(), reqValue);
+                                                                        field.set(ObjectInstance, convertObject);
 
-                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
-                                                        if (paramType == int.class || paramType == Integer.class) {
-                                                                argument[i] = Integer.parseInt(reqValue);
-                                                        } else if (paramType == double.class
-                                                                        || paramType == Double.class) {
-                                                                argument[i] = Double.parseDouble(reqValue);
-                                                        } else if (paramType == boolean.class
-                                                                        || paramType == Boolean.class) {
-                                                                argument[i] = Boolean.parseBoolean(reqValue);
-                                                        } else {
-                                                                argument[i] = reqValue;
+                                                                }
+
                                                         }
-                                                } else {
-                                                        // Valeurs par défaut si le paramètre est absent
-                                                        if (paramType.isPrimitive()) {
-                                                                if (paramType == int.class)
-                                                                        argument[i] = 0;
-                                                                else if (paramType == double.class)
-                                                                        argument[i] = 0.0;
-                                                                else if (paramType == boolean.class)
-                                                                        argument[i] = false;
-                                                        } else {
-                                                                argument[i] = null;
-                                                        }
+                                                        argument[i] = ObjectInstance;
+
+                                                } catch (Exception e) {
+                                                        argument[i] = null;
                                                 }
                                         }
+
                                 }
 
                                 Object resultat = methodeAExecuter.invoke(controllerInstance, argument);
@@ -183,6 +170,37 @@ public class FrontControllerServlet extends HttpServlet {
                         out.println("   Méthode : " + mappingDispo.getMethode().getName() + "()<br>");
                         out.println("   Classe : " + mappingDispo.getControllerInstance().getName() + "<br><br>");
                 }
+        }
+
+        // Vérifie si la classe est un type simple
+        private boolean isSimpleType(Class<?> type) {
+                return type.isPrimitive()
+                                || type == String.class
+                                || type == Integer.class
+                                || type == Double.class
+                                || type == Boolean.class;
+        }
+
+        // Convertit une valeur String vers le type cible
+        private Object convertSimpleType(Class<?> type, String value) {
+                if (value == null || value.trim().isEmpty()) {
+                        if (type == int.class)
+                                return 0;
+                        if (type == double.class)
+                                return 0.0;
+                        if (type == boolean.class)
+                                return false;
+                        return null;
+                }
+
+                if (type == int.class || type == Integer.class) {
+                        return Integer.parseInt(value);
+                } else if (type == double.class || type == Double.class) {
+                        return Double.parseDouble(value);
+                } else if (type == boolean.class || type == Boolean.class) {
+                        return Boolean.parseBoolean(value);
+                }
+                return value; // String par défaut
         }
 
         @Override
