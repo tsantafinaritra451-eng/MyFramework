@@ -15,8 +15,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.File;
-import javax.management.ObjectInstance;
 import mg.itu.tsanta.annotation.Api;
 
 public class FrontControllerServlet extends HttpServlet {
@@ -69,39 +67,8 @@ public class FrontControllerServlet extends HttpServlet {
                                 Parameter[] parametres = methodeAExecuter.getParameters();
                                 Object[] argument = new Object[parametres.length];
 
-                                for (int i = 0; i < argument.length; i++) {
-                                        Parameter param = parametres[i];
-                                        Class<?> paramType = param.getType();
-                                        if (paramType.getName()
-                                                        .equals("org.springframework.context.ApplicationContext")) {
-                                                argument[i] = springContext;
-                                        } else if (isSimpleType(paramType)) {
-                                                String paramName = param.getName();
-                                                String reqValue = request.getParameter(paramName);
-                                                argument[i] = convertSimpleType(paramType, reqValue);
-                                        } else {
-                                                try {
-                                                        Object ObjectInstance = paramType.getDeclaredConstructor()
-                                                                        .newInstance();
-                                                        Field[] Fields = paramType.getDeclaredFields();
-                                                        for (Field field : Fields) {
-                                                                field.setAccessible(true);
-                                                                String fieldName = field.getName();
-                                                                String reqValue = request.getParameter(fieldName);
-                                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
-                                                                        Object convertObject = convertSimpleType(field.getType(), reqValue);
-                                                                        field.set(ObjectInstance, convertObject);
-
-                                                                }
-
-                                                        }
-                                                        argument[i] = ObjectInstance;
-
-                                                } catch (Exception e) {
-                                                        argument[i] = null;
-                                                }
-                                        }
-
+                                for (int i = 0; i < parametres.length; i++) {
+                                        argument[i] = resolveParameter(parametres[i], request, springContext);
                                 }
 
                                 Object resultat = methodeAExecuter.invoke(controllerInstance, argument);
@@ -172,7 +139,101 @@ public class FrontControllerServlet extends HttpServlet {
                 }
         }
 
-        // Vérifie si la classe est un type simple
+        // parametre
+        private Object resolveParameter(Parameter param, HttpServletRequest request, Object springContext) {
+                Class<?> paramType = param.getType();
+                String paramName = param.getName();
+
+                // contexte spring
+                if (paramType.getName().equals("org.springframework.context.ApplicationContext")) {
+                        return springContext;
+                } 
+                // simple
+                if (isSimpleType(paramType)) {
+                        String reqValue = request.getParameter(paramName);
+                        return convertSimpleType(paramType, reqValue);
+                } 
+                // tableau et liste
+                if (paramType.isArray() || java.util.List.class.isAssignableFrom(paramType)) {
+                        return bindCollectionOrArray(paramType, paramName, request);
+                } 
+                // si c'est un Objet complexe (ou imbriqué)
+                return bindComplexObject(paramType, paramName, request);
+        }
+
+        // Objet (gère aussi les objets imbriqués de manière récursive)
+        private Object bindComplexObject(Class<?> paramType, String prefix, HttpServletRequest request) {
+                try {
+                        Object objectInstance = paramType.getDeclaredConstructor().newInstance();
+                        Field[] fields = paramType.getDeclaredFields();
+
+                        for (Field field : fields) {
+                                field.setAccessible(true);
+                                String fieldName = field.getName();
+                                Class<?> fieldType = field.getType();
+
+                                // Construire le préfixe complet (ex: employe.adresse)
+                                String fullPrefix = (prefix != null && !prefix.isEmpty()) ? prefix + "." + fieldName : fieldName;
+
+                                // Cas 1 : Type simple
+                                if (isSimpleType(fieldType)) {
+                                        String reqValue = request.getParameter(fullPrefix);
+                                        if (reqValue == null || reqValue.trim().isEmpty()) {
+                                                reqValue = request.getParameter(fieldName);
+                                        }
+
+                                        if (reqValue != null && !reqValue.trim().isEmpty()) {
+                                                Object convertObject = convertSimpleType(fieldType, reqValue);
+                                                field.set(objectInstance, convertObject);
+                                        }
+                                } 
+                                // Cas 2 : Tableaux ou Listes dans l'objet
+                                else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
+                                        Object collectionVal = bindCollectionOrArray(fieldType, fullPrefix, request);
+                                        if (collectionVal == null) {
+                                                collectionVal = bindCollectionOrArray(fieldType, fieldName, request);
+                                        }
+                                        if (collectionVal != null) {
+                                                field.set(objectInstance, collectionVal);
+                                        }
+                                } 
+                                // Cas 3 : Objet imbriqué (ex: Adresse dans Employe) -> Récursivité
+                                else {
+                                        Object nestedInstance = bindComplexObject(fieldType, fullPrefix, request);
+                                        if (nestedInstance != null) {
+                                                field.set(objectInstance, nestedInstance);
+                                        }
+                                }
+                        }
+                        return objectInstance;
+                } catch (Exception e) {
+                        return null;
+                }
+        }
+
+        // Tableau ou Liste
+        private Object bindCollectionOrArray(Class<?> paramType, String paramName, HttpServletRequest request) {
+                String[] reqValues = request.getParameterValues(paramName);
+                if (reqValues == null) {
+                        return null;
+                }
+
+                if (paramType.isArray()) {
+                        Class<?> componentType = paramType.getComponentType();
+                        Object arrayInstance = java.lang.reflect.Array.newInstance(componentType, reqValues.length);
+                        for (int j = 0; j < reqValues.length; j++) {
+                                java.lang.reflect.Array.set(arrayInstance, j, convertSimpleType(componentType, reqValues[j]));
+                        }
+                        return arrayInstance;
+                } else {
+                        java.util.List<Object> listInstance = new java.util.ArrayList<>();
+                        for (String val : reqValues) {
+                                listInstance.add(val);
+                        }
+                        return listInstance;
+                }
+        }
+
         private boolean isSimpleType(Class<?> type) {
                 return type.isPrimitive()
                                 || type == String.class
@@ -181,7 +242,6 @@ public class FrontControllerServlet extends HttpServlet {
                                 || type == Boolean.class;
         }
 
-        // Convertit une valeur String vers le type cible
         private Object convertSimpleType(Class<?> type, String value) {
                 if (value == null || value.trim().isEmpty()) {
                         if (type == int.class)
