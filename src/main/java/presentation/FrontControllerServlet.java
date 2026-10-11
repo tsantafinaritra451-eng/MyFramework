@@ -69,41 +69,52 @@ public class FrontControllerServlet extends HttpServlet {
                                 Parameter[] parametres = methodeAExecuter.getParameters();
                                 Object[] argument = new Object[parametres.length];
 
-                                for (int i = 0; i < argument.length; i++) {
+                                for (int i = 0; i < parametres.length; i++) {
                                         Parameter param = parametres[i];
                                         Class<?> paramType = param.getType();
+
                                         if (paramType.getName()
                                                         .equals("org.springframework.context.ApplicationContext")) {
                                                 argument[i] = springContext;
-                                        } else if (isSimpleType(paramType)) {
+                                        }
+                                        else if (isSimpleType(paramType)) {
                                                 String paramName = param.getName();
                                                 String reqValue = request.getParameter(paramName);
                                                 argument[i] = convertSimpleType(paramType, reqValue);
-                                        } else {
+                                        }
+                                        else {
                                                 try {
-                                                        Object ObjectInstance = paramType.getDeclaredConstructor()
+                                                        Object objectInstance = paramType.getDeclaredConstructor()
                                                                         .newInstance();
-                                                        Field[] Fields = paramType.getDeclaredFields();
-                                                        for (Field field : Fields) {
+                                                        Field[] fields = paramType.getDeclaredFields();
+
+                                                        String prefix = param.getName(); // Ex: "employe" ou "chef"
+
+                                                        for (Field field : fields) {
                                                                 field.setAccessible(true);
                                                                 String fieldName = field.getName();
-                                                                String reqValue = request.getParameter(fieldName);
-                                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
-                                                                        Object convertObject = convertSimpleType(field.getType(), reqValue);
-                                                                        field.set(ObjectInstance, convertObject);
 
+                                                                // Cherche d'abord avec le préfixe (ex: employe.nom),
+                                                                // puis sans préfixe (ex: nom)
+                                                                String reqValue = request
+                                                                                .getParameter(prefix + "." + fieldName);
+                                                                if (reqValue == null || reqValue.trim().isEmpty()) {
+                                                                        reqValue = request.getParameter(fieldName);
                                                                 }
 
+                                                                if (reqValue != null && !reqValue.trim().isEmpty()) {
+                                                                        Object convertObject = convertSimpleType(
+                                                                                        field.getType(), reqValue);
+                                                                        field.set(objectInstance, convertObject);
+                                                                }
                                                         }
-                                                        argument[i] = ObjectInstance;
+                                                        argument[i] = objectInstance;
 
                                                 } catch (Exception e) {
                                                         argument[i] = null;
                                                 }
                                         }
-
                                 }
-
                                 Object resultat = methodeAExecuter.invoke(controllerInstance, argument);
 
                                 boolean isApi = clazz.isAnnotationPresent(Api.class)
