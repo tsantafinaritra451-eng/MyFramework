@@ -1,6 +1,8 @@
 package presentation;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -12,11 +14,18 @@ import com.google.gson.Gson;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import mg.itu.tsanta.annotation.Api;
 
+@MultipartConfig(
+    fileSizeThreshold = 1024 * 1024 * 2,
+    maxFileSize = 1024 * 1024 * 10,      
+    maxRequestSize = 1024 * 1024 * 50    
+)
 public class FrontControllerServlet extends HttpServlet {
 
         public FrontControllerServlet() {
@@ -161,7 +170,6 @@ public class FrontControllerServlet extends HttpServlet {
                 return bindComplexObject(paramType, paramName, request);
         }
 
-        // Objet (gère aussi les objets imbriqués de manière récursive)
         private Object bindComplexObject(Class<?> paramType, String prefix, HttpServletRequest request) {
                 try {
                         Object objectInstance = paramType.getDeclaredConstructor().newInstance();
@@ -172,10 +180,10 @@ public class FrontControllerServlet extends HttpServlet {
                                 String fieldName = field.getName();
                                 Class<?> fieldType = field.getType();
 
-                                // Construire le préfixe complet (ex: employe.adresse)
+                                // Construire le préfixe complet (ex: employe.mapFile ou employe.adresse)
                                 String fullPrefix = (prefix != null && !prefix.isEmpty()) ? prefix + "." + fieldName : fieldName;
 
-                                // Cas 1 : Type simple
+                                // C Type simple
                                 if (isSimpleType(fieldType)) {
                                         String reqValue = request.getParameter(fullPrefix);
                                         if (reqValue == null || reqValue.trim().isEmpty()) {
@@ -187,7 +195,7 @@ public class FrontControllerServlet extends HttpServlet {
                                                 field.set(objectInstance, convertObject);
                                         }
                                 } 
-                                // Cas 2 : Tableaux ou Listes dans l'objet
+                                //  Tableaux ou Listes dans l'objet
                                 else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
                                         Object collectionVal = bindCollectionOrArray(fieldType, fullPrefix, request);
                                         if (collectionVal == null) {
@@ -197,7 +205,50 @@ public class FrontControllerServlet extends HttpServlet {
                                                 field.set(objectInstance, collectionVal);
                                         }
                                 } 
-                                // Cas 3 : Objet imbriqué (ex: Adresse dans Employe) -> Récursivité
+                                else if (fieldType.getSimpleName().equals("MapFile")) {
+                                        try {
+                                                Part filePart = request.getPart(fullPrefix);
+                                                if (filePart == null) {
+                                                        filePart = request.getPart(fieldName);
+                                                }
+
+                                                if (filePart != null && filePart.getSize() > 0) {
+                                                        Object mapFileInstance = fieldType.getDeclaredConstructor().newInstance();
+
+                                                        // Nom d'origine du fichier
+                                                        String submittedFileName = filePart.getSubmittedFileName();
+                                                        Method setNomMethod = fieldType.getMethod("setNom", String.class);
+                                                        setNomMethod.invoke(mapFileInstance, submittedFileName);
+
+                                                        
+                                                        // Extension du fichier
+                                                        String extension = "";
+                                                        if (submittedFileName != null && submittedFileName.contains(".")) {
+                                                                extension = submittedFileName.substring(submittedFileName.lastIndexOf("."));
+                                                        }
+                                                        Method setExtensionMethod = fieldType.getMethod("setExtension", String.class);
+                                                        setExtensionMethod.invoke(mapFileInstance, extension);
+
+                                                        // Lecture du flux binaire en byte[]
+                                                        try (InputStream inputStream = filePart.getInputStream();
+                                                             ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+                                                                int nRead;
+                                                                byte[] data = new byte[16384];
+                                                                while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+                                                                        buffer.write(data, 0, nRead);
+                                                                }
+                                                                
+                                                                Method setBytesMethod = fieldType.getMethod("setBytes", byte[].class);
+                                                                setBytesMethod.invoke(mapFileInstance, buffer.toByteArray());
+                                                        }
+
+                                                        field.set(objectInstance, mapFileInstance);
+                                                }
+                                        } catch (Exception e) {
+                                                e.printStackTrace();
+                                        }
+                                }
+                                //  Objet imbrique
                                 else {
                                         Object nestedInstance = bindComplexObject(fieldType, fullPrefix, request);
                                         if (nestedInstance != null) {
