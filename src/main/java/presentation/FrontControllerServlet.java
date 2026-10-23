@@ -45,10 +45,13 @@ public class FrontControllerServlet extends HttpServlet {
                 }
                 this.prefix = getServletContext().getInitParameter("viewPrefix");
                 this.suffix = getServletContext().getInitParameter("viewSuffix");
+
                 ServletContext context = getServletContext();
                 if (context.getAttribute(SESSION_MAP_KEY) == null) {
                         context.setAttribute(SESSION_MAP_KEY, new ConcurrentHashMap<HttpSession, MySession>());
                 }
+          
+             
         }
 
         protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -161,7 +164,6 @@ public class FrontControllerServlet extends HttpServlet {
                 if (paramType.equals(presentation.MySession.class)) {
                         HttpSession nativeSession = request.getSession(true);
 
-                        // 1. Récupérer la Map globale depuis le ServletContext 
                         ServletContext context = getServletContext();
                         @SuppressWarnings("unchecked")
                         Map<HttpSession, MySession> instanceSessions = (Map<HttpSession, MySession>) context
@@ -169,18 +171,15 @@ public class FrontControllerServlet extends HttpServlet {
 
                         MySession sessionTrouvee = null;
 
-                        // 2. LA BOUCLE DE PARCOURS (Recherche et mise à jour)
                         for (Map.Entry<HttpSession, MySession> entry : instanceSessions.entrySet()) {
                                 HttpSession storedHttpSession = entry.getKey();
 
                                 if (storedHttpSession.equals(nativeSession)) {
                                         sessionTrouvee = entry.getValue();
-                                        // Mise à jour ou rafraîchissement si nécessaire dans la boucle
                                         break;
                                 }
                         }
 
-                        // 3. Si elle n'existe pas, on l'instancie et on l'ajoute à la Map du contexte
                         if (sessionTrouvee == null) {
                                 sessionTrouvee = new MySession(nativeSession);
                                 instanceSessions.put(nativeSession, sessionTrouvee);
