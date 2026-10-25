@@ -8,6 +8,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.Gson;
 
@@ -19,13 +20,12 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
+import java.util.function.Function;
+import jakarta.servlet.http.HttpSession;
+
 import mg.itu.tsanta.annotation.Api;
 
-@MultipartConfig(
-    fileSizeThreshold = 1024 * 1024 * 2,
-    maxFileSize = 1024 * 1024 * 10,      
-    maxRequestSize = 1024 * 1024 * 50    
-)
+@MultipartConfig(fileSizeThreshold = 1024 * 1024 * 2, maxFileSize = 1024 * 1024 * 10, maxRequestSize = 1024 * 1024 * 50)
 public class FrontControllerServlet extends HttpServlet {
 
         public FrontControllerServlet() {
@@ -35,6 +35,7 @@ public class FrontControllerServlet extends HttpServlet {
         private Map<UrlMethod, Mapping> listUrl;
         private String prefix;
         private String suffix;
+        private static final String SESSION_MAP_KEY = "frameworkInstanceSessions";
 
         @Override
         public void init() throws ServletException {
@@ -44,6 +45,13 @@ public class FrontControllerServlet extends HttpServlet {
                 }
                 this.prefix = getServletContext().getInitParameter("viewPrefix");
                 this.suffix = getServletContext().getInitParameter("viewSuffix");
+
+                ServletContext context = getServletContext();
+                if (context.getAttribute(SESSION_MAP_KEY) == null) {
+                        context.setAttribute(SESSION_MAP_KEY, new ConcurrentHashMap<HttpSession, MySession>());
+                }
+          
+             
         }
 
         protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -153,19 +161,46 @@ public class FrontControllerServlet extends HttpServlet {
                 Class<?> paramType = param.getType();
                 String paramName = param.getName();
 
+                if (paramType.equals(presentation.MySession.class)) {
+                        HttpSession nativeSession = request.getSession(true);
+
+                        ServletContext context = getServletContext();
+                        @SuppressWarnings("unchecked")
+                        Map<HttpSession, MySession> instanceSessions = (Map<HttpSession, MySession>) context
+                                        .getAttribute(SESSION_MAP_KEY);
+
+                        MySession sessionTrouvee = null;
+
+                        for (Map.Entry<HttpSession, MySession> entry : instanceSessions.entrySet()) {
+                                HttpSession storedHttpSession = entry.getKey();
+
+                                if (storedHttpSession.equals(nativeSession)) {
+                                        sessionTrouvee = entry.getValue();
+                                        break;
+                                }
+                        }
+
+                        if (sessionTrouvee == null) {
+                                sessionTrouvee = new MySession(nativeSession);
+                                instanceSessions.put(nativeSession, sessionTrouvee);
+                        }
+
+                        return sessionTrouvee;
+                }
+
                 // contexte spring
                 if (paramType.getName().equals("org.springframework.context.ApplicationContext")) {
                         return springContext;
-                } 
+                }
                 // simple
                 if (isSimpleType(paramType)) {
                         String reqValue = request.getParameter(paramName);
                         return convertSimpleType(paramType, reqValue);
-                } 
+                }
                 // tableau et liste
                 if (paramType.isArray() || java.util.List.class.isAssignableFrom(paramType)) {
                         return bindCollectionOrArray(paramType, paramName, request);
-                } 
+                }
                 // si c'est un Objet complexe (ou imbriqué)
                 return bindComplexObject(paramType, paramName, request);
         }
@@ -181,7 +216,8 @@ public class FrontControllerServlet extends HttpServlet {
                                 Class<?> fieldType = field.getType();
 
                                 // Construire le préfixe complet (ex: employe.mapFile ou employe.adresse)
-                                String fullPrefix = (prefix != null && !prefix.isEmpty()) ? prefix + "." + fieldName : fieldName;
+                                String fullPrefix = (prefix != null && !prefix.isEmpty()) ? prefix + "." + fieldName
+                                                : fieldName;
 
                                 // C Type simple
                                 if (isSimpleType(fieldType)) {
@@ -194,8 +230,8 @@ public class FrontControllerServlet extends HttpServlet {
                                                 Object convertObject = convertSimpleType(fieldType, reqValue);
                                                 field.set(objectInstance, convertObject);
                                         }
-                                } 
-                                //  Tableaux ou Listes dans l'objet
+                                }
+                                // Tableaux ou Listes dans l'objet
                                 else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
                                         Object collectionVal = bindCollectionOrArray(fieldType, fullPrefix, request);
                                         if (collectionVal == null) {
@@ -204,8 +240,7 @@ public class FrontControllerServlet extends HttpServlet {
                                         if (collectionVal != null) {
                                                 field.set(objectInstance, collectionVal);
                                         }
-                                } 
-                                else if (fieldType.getSimpleName().equals("MapFile")) {
+                                } else if (fieldType.getSimpleName().equals("MapFile")) {
                                         try {
                                                 Part filePart = request.getPart(fullPrefix);
                                                 if (filePart == null) {
@@ -213,33 +248,40 @@ public class FrontControllerServlet extends HttpServlet {
                                                 }
 
                                                 if (filePart != null && filePart.getSize() > 0) {
-                                                        Object mapFileInstance = fieldType.getDeclaredConstructor().newInstance();
+                                                        Object mapFileInstance = fieldType.getDeclaredConstructor()
+                                                                        .newInstance();
 
                                                         // Nom d'origine du fichier
                                                         String submittedFileName = filePart.getSubmittedFileName();
-                                                        Method setNomMethod = fieldType.getMethod("setNom", String.class);
+                                                        Method setNomMethod = fieldType.getMethod("setNom",
+                                                                        String.class);
                                                         setNomMethod.invoke(mapFileInstance, submittedFileName);
 
-                                                        
                                                         // Extension du fichier
                                                         String extension = "";
-                                                        if (submittedFileName != null && submittedFileName.contains(".")) {
-                                                                extension = submittedFileName.substring(submittedFileName.lastIndexOf("."));
+                                                        if (submittedFileName != null
+                                                                        && submittedFileName.contains(".")) {
+                                                                extension = submittedFileName.substring(
+                                                                                submittedFileName.lastIndexOf("."));
                                                         }
-                                                        Method setExtensionMethod = fieldType.getMethod("setExtension", String.class);
+                                                        Method setExtensionMethod = fieldType.getMethod("setExtension",
+                                                                        String.class);
                                                         setExtensionMethod.invoke(mapFileInstance, extension);
 
                                                         // Lecture du flux binaire en byte[]
                                                         try (InputStream inputStream = filePart.getInputStream();
-                                                             ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+                                                                        ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
                                                                 int nRead;
                                                                 byte[] data = new byte[16384];
-                                                                while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+                                                                while ((nRead = inputStream.read(data, 0,
+                                                                                data.length)) != -1) {
                                                                         buffer.write(data, 0, nRead);
                                                                 }
-                                                                
-                                                                Method setBytesMethod = fieldType.getMethod("setBytes", byte[].class);
-                                                                setBytesMethod.invoke(mapFileInstance, buffer.toByteArray());
+
+                                                                Method setBytesMethod = fieldType.getMethod("setBytes",
+                                                                                byte[].class);
+                                                                setBytesMethod.invoke(mapFileInstance,
+                                                                                buffer.toByteArray());
                                                         }
 
                                                         field.set(objectInstance, mapFileInstance);
@@ -248,7 +290,7 @@ public class FrontControllerServlet extends HttpServlet {
                                                 e.printStackTrace();
                                         }
                                 }
-                                //  Objet imbrique
+                                // Objet imbrique
                                 else {
                                         Object nestedInstance = bindComplexObject(fieldType, fullPrefix, request);
                                         if (nestedInstance != null) {
@@ -273,7 +315,8 @@ public class FrontControllerServlet extends HttpServlet {
                         Class<?> componentType = paramType.getComponentType();
                         Object arrayInstance = java.lang.reflect.Array.newInstance(componentType, reqValues.length);
                         for (int j = 0; j < reqValues.length; j++) {
-                                java.lang.reflect.Array.set(arrayInstance, j, convertSimpleType(componentType, reqValues[j]));
+                                java.lang.reflect.Array.set(arrayInstance, j,
+                                                convertSimpleType(componentType, reqValues[j]));
                         }
                         return arrayInstance;
                 } else {

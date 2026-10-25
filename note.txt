@@ -70,3 +70,13 @@ Pour chaque paramètre (i) de la méthode :
                    Remplir le champ dans l'instance (field.set(instance, Valeur convertie))
            
            argument[i] = instance créée
+
+
+
+suite: session
+- creation classe session(map(string, object)) avec methode utilitaire
+
+framework : instancesession 
+parcours boucle Map(HttpSession)
+
+Mise a jour : le htttpsession et celui dont on a instancier a partir de boucle
