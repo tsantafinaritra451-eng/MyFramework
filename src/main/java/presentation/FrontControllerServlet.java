@@ -35,6 +35,7 @@ public class FrontControllerServlet extends HttpServlet {
         private Map<UrlMethod, Mapping> listUrl;
         private String prefix;
         private String suffix;
+        private String authSessionKey;
         private static final String SESSION_MAP_KEY = "frameworkInstanceSessions";
 
         @Override
@@ -46,12 +47,16 @@ public class FrontControllerServlet extends HttpServlet {
                 this.prefix = getServletContext().getInitParameter("viewPrefix");
                 this.suffix = getServletContext().getInitParameter("viewSuffix");
 
+                this.authSessionKey = getServletContext().getInitParameter("authSessionKey");
+                if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
+                        this.authSessionKey = "utilisateurConnecte";
+                }
+
                 ServletContext context = getServletContext();
                 if (context.getAttribute(SESSION_MAP_KEY) == null) {
                         context.setAttribute(SESSION_MAP_KEY, new ConcurrentHashMap<HttpSession, MySession>());
                 }
-          
-             
+
         }
 
         protected void processRequest(HttpServletRequest request, HttpServletResponse response)
@@ -71,6 +76,36 @@ public class FrontControllerServlet extends HttpServlet {
                                 Class<?> clazz = mappingTrouve.getControllerInstance();
                                 Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
                                 Method methodeAExecuter = mappingTrouve.getMethode();
+
+                                boolean requiresAuth = clazz.isAnnotationPresent(mg.itu.tsanta.annotation.Auth.class)
+                                                || methodeAExecuter.isAnnotationPresent(
+                                                                mg.itu.tsanta.annotation.Auth.class);
+
+                                if (requiresAuth) {
+                                        HttpSession nativeRequestSession = request.getSession(false);
+                                        MySession currentSession = null;
+
+                                        if (nativeRequestSession != null) {
+                                                @SuppressWarnings("unchecked")
+                                                Map<HttpSession, MySession> instanceSessions = (Map<HttpSession, MySession>) getServletContext()
+                                                                .getAttribute(SESSION_MAP_KEY);
+
+                                                if (instanceSessions != null) {
+                                                        currentSession = instanceSessions.get(nativeRequestSession);
+                                                }
+                                        }
+
+                                        Object authValue = (currentSession != null) ? currentSession.get(authSessionKey)
+                                                        : null;
+
+                                        if (authValue == null) {
+                                                response.setContentType("text/html; charset=UTF-8");
+                                                PrintWriter out = response.getWriter();
+                                                out.println("<h3>Accès refusé : Vous devez être connecté pour accéder à cette ressource.</h3>");
+                                                out.println("<a href='formconnex'>Se connecter</a>");
+                                                return; 
+                                        }
+                                }
 
                                 ServletContext servletContext = getServletContext();
                                 Object springContext = null;
