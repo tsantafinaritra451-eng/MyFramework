@@ -24,6 +24,7 @@ import java.util.function.Function;
 import jakarta.servlet.http.HttpSession;
 
 import mg.itu.tsanta.annotation.Api;
+import mg.itu.tsanta.annotation.Auth;
 
 @MultipartConfig(fileSizeThreshold = 1024 * 1024 * 2, maxFileSize = 1024 * 1024 * 10, maxRequestSize = 1024 * 1024 * 50)
 public class FrontControllerServlet extends HttpServlet {
@@ -36,6 +37,8 @@ public class FrontControllerServlet extends HttpServlet {
         private String prefix;
         private String suffix;
         private String authSessionKey;
+        private String roleKey;
+
         private static final String SESSION_MAP_KEY = "frameworkInstanceSessions";
 
         @Override
@@ -50,6 +53,11 @@ public class FrontControllerServlet extends HttpServlet {
                 this.authSessionKey = getServletContext().getInitParameter("authSessionKey");
                 if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
                         this.authSessionKey = "utilisateurConnecte";
+                }
+
+                this.roleKey = getServletContext().getInitParameter("roleKey");
+                if (this.roleKey == null || this.roleKey.isEmpty()) {
+                        this.roleKey = "roleUtilisateur";
                 }
 
                 ServletContext context = getServletContext();
@@ -77,9 +85,9 @@ public class FrontControllerServlet extends HttpServlet {
                                 Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
                                 Method methodeAExecuter = mappingTrouve.getMethode();
 
-                                boolean requiresAuth = clazz.isAnnotationPresent(mg.itu.tsanta.annotation.Auth.class)
+                                boolean requiresAuth = clazz.isAnnotationPresent(Auth.class)
                                                 || methodeAExecuter.isAnnotationPresent(
-                                                                mg.itu.tsanta.annotation.Auth.class);
+                                                                Auth.class);
 
                                 if (requiresAuth) {
                                         HttpSession nativeRequestSession = request.getSession(false);
@@ -103,11 +111,53 @@ public class FrontControllerServlet extends HttpServlet {
                                                 PrintWriter out = response.getWriter();
                                                 out.println("<h3>Accès refusé : Vous devez être connecté pour accéder à cette ressource.</h3>");
                                                 out.println("<a href='formconnex'>Se connecter</a>");
-                                                return; 
+                                                return;
                                         }
+
+                                        if (authValue != null) {
+                                                String userRole = (currentSession != null)
+                                                                ? (String) currentSession.get(roleKey)
+                                                                : null;
+                                                Auth authAnnotation = null;
+
+                                                if (methodeAExecuter.isAnnotationPresent(Auth.class)) {
+                                                        authAnnotation = methodeAExecuter.getAnnotation(Auth.class);
+                                                } else if (clazz.isAnnotationPresent(Auth.class)) {
+                                                        authAnnotation = clazz.getAnnotation(Auth.class); 
+                                                                                                         
+                                                }
+                                                if (authAnnotation != null) {
+                                                String[] rolesRequis = authAnnotation.role();
+                                                if (rolesRequis.length > 0) { 
+                                                        boolean validationRole = false;
+
+                                                        for (String r : rolesRequis) { 
+                                                                if (r.equals(userRole)) {
+                                                                        validationRole = true;
+                                                                        break;
+                                                                }
+                                                        }
+
+                                                        if (!validationRole) {
+                                                                response.setContentType("text/html; charset=UTF-8");
+                                                                PrintWriter out = response.getWriter();
+                                                                out.println("<h3>Accès refusé : Vous n'avez pas le rôle requis pour accéder à cette ressource.</h3>");
+                                                                return;
+                                                        }
+                                                }
+
                                 }
 
-                                ServletContext servletContext = getServletContext();
+                        }catch (Exception e) {
+                                response.setContentType("text/html; charset=UTF-8");
+                                PrintWriter out = response.getWriter();
+                                e.printStackTrace(out);
+                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage()
+                                                + "</h3>");
+                                return;
+                        }
+                            
+                        ServletContext servletContext = getServletContext();
                                 Object springContext = null;
                                 try {
                                         springContext = servletContext.getAttribute(
@@ -167,14 +217,6 @@ public class FrontControllerServlet extends HttpServlet {
                                 }
                                 return;
 
-                        } catch (Exception e) {
-                                response.setContentType("text/html; charset=UTF-8");
-                                PrintWriter out = response.getWriter();
-                                e.printStackTrace(out);
-                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage()
-                                                + "</h3>");
-                                return;
-                        }
                 }
 
                 response.setContentType("text/html; charset=UTF-8");
