@@ -86,8 +86,7 @@ public class FrontControllerServlet extends HttpServlet {
                                 Method methodeAExecuter = mappingTrouve.getMethode();
 
                                 boolean requiresAuth = clazz.isAnnotationPresent(Auth.class)
-                                                || methodeAExecuter.isAnnotationPresent(
-                                                                Auth.class);
+                                                || methodeAExecuter.isAnnotationPresent(Auth.class);
 
                                 if (requiresAuth) {
                                         HttpSession nativeRequestSession = request.getSession(false);
@@ -114,24 +113,23 @@ public class FrontControllerServlet extends HttpServlet {
                                                 return;
                                         }
 
-                                        if (authValue != null) {
-                                                String userRole = (currentSession != null)
-                                                                ? (String) currentSession.get(roleKey)
-                                                                : null;
-                                                Auth authAnnotation = null;
+                                        String userRole = (currentSession != null)
+                                                        ? (String) currentSession.get(roleKey)
+                                                        : null;
+                                        Auth authAnnotation = null;
 
-                                                if (methodeAExecuter.isAnnotationPresent(Auth.class)) {
-                                                        authAnnotation = methodeAExecuter.getAnnotation(Auth.class);
-                                                } else if (clazz.isAnnotationPresent(Auth.class)) {
-                                                        authAnnotation = clazz.getAnnotation(Auth.class); 
-                                                                                                         
-                                                }
-                                                if (authAnnotation != null) {
+                                        if (methodeAExecuter.isAnnotationPresent(Auth.class)) {
+                                                authAnnotation = methodeAExecuter.getAnnotation(Auth.class);
+                                        } else if (clazz.isAnnotationPresent(Auth.class)) {
+                                                authAnnotation = clazz.getAnnotation(Auth.class);
+                                        }
+
+                                        if (authAnnotation != null) {
                                                 String[] rolesRequis = authAnnotation.role();
-                                                if (rolesRequis.length > 0) { 
+                                                if (rolesRequis.length > 0) {
                                                         boolean validationRole = false;
 
-                                                        for (String r : rolesRequis) { 
+                                                        for (String r : rolesRequis) {
                                                                 if (r.equals(userRole)) {
                                                                         validationRole = true;
                                                                         break;
@@ -145,25 +143,16 @@ public class FrontControllerServlet extends HttpServlet {
                                                                 return;
                                                         }
                                                 }
-
+                                        }
                                 }
 
-                        }catch (Exception e) {
-                                response.setContentType("text/html; charset=UTF-8");
-                                PrintWriter out = response.getWriter();
-                                e.printStackTrace(out);
-                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage()
-                                                + "</h3>");
-                                return;
-                        }
-                            
-                        ServletContext servletContext = getServletContext();
+                                ServletContext servletContext = getServletContext();
                                 Object springContext = null;
                                 try {
                                         springContext = servletContext.getAttribute(
                                                         "org.springframework.web.context.WebApplicationContext.ROOT");
                                 } catch (Exception e) {
-
+                                        // Spring non présent, on ignore
                                 }
 
                                 Parameter[] parametres = methodeAExecuter.getParameters();
@@ -217,6 +206,14 @@ public class FrontControllerServlet extends HttpServlet {
                                 }
                                 return;
 
+                        } catch (Exception e) {
+                                response.setContentType("text/html; charset=UTF-8");
+                                PrintWriter out = response.getWriter();
+                                e.printStackTrace(out);
+                                out.println("<h3>Erreur lors de l'exécution du contrôleur : " + e.getMessage()
+                                                + "</h3>");
+                                return;
+                        }
                 }
 
                 response.setContentType("text/html; charset=UTF-8");
