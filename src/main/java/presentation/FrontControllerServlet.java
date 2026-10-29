@@ -88,6 +88,13 @@ public class FrontControllerServlet extends HttpServlet {
                                 boolean requiresAuth = clazz.isAnnotationPresent(Auth.class)
                                                 || methodeAExecuter.isAnnotationPresent(Auth.class);
 
+                                Map<class<?>, Object> controllers = (Map(class<?>, Object).getServletContext).getAttribute(controllerInstance);
+                                Object Controller = controllers.computeIsAbsent(clazz, c ){
+                                        System.out.println("controller cree" + getNom());
+                                        controllers.put(Controller);
+                                }
+                                if(!controllerInstance)
+
                                 if (requiresAuth) {
                                         HttpSession nativeRequestSession = request.getSession(false);
                                         MySession currentSession = null;

@@ -4,9 +4,12 @@ import java.util.Map;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
+import jakarta.servlet.ConcurrentHashMap;
+
+
 
 public class RequestControllerListener implements ServletContextListener {
-    @Override
+   @Override
     public void contextInitialized(ServletContextEvent sce) {
          ServletContext servletContext = sce.getServletContext();
 
@@ -22,6 +25,12 @@ public class RequestControllerListener implements ServletContextListener {
          } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Erreur lors de l'initialisation des mappings", e);
+
+
+           
+            Map<Class<?>, Object> controllerInstace = new ConcurrentHashMap<>();
+            servletContext.setAttribute("controllerInstance", controllerInstace);
+
          }
     }
 }
