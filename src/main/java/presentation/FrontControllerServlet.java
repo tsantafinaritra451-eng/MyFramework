@@ -24,6 +24,7 @@ import java.util.function.Function;
 import jakarta.servlet.http.HttpSession;
 
 import mg.itu.tsanta.annotation.Api;
+import mg.itu.tsanta.annotation.Auth;
 
 @MultipartConfig(fileSizeThreshold = 1024 * 1024 * 2, maxFileSize = 1024 * 1024 * 10, maxRequestSize = 1024 * 1024 * 50)
 public class FrontControllerServlet extends HttpServlet {
@@ -36,6 +37,7 @@ public class FrontControllerServlet extends HttpServlet {
         private String prefix;
         private String suffix;
         private String authSessionKey;
+        private String roleKey; // <--- AJOUTÉ ICI POUR CORRIGER L'ERREUR DE COMPILATION
         private static final String SESSION_MAP_KEY = "frameworkInstanceSessions";
 
         @Override
@@ -50,6 +52,11 @@ public class FrontControllerServlet extends HttpServlet {
                 this.authSessionKey = getServletContext().getInitParameter("authSessionKey");
                 if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
                         this.authSessionKey = "utilisateurConnecte";
+                }
+
+                this.roleKey = getServletContext().getInitParameter("roleKey");
+                if (this.roleKey == null || this.roleKey.isEmpty()) {
+                        this.roleKey = "roleUtilisateur";
                 }
 
                 ServletContext context = getServletContext();
@@ -103,9 +110,43 @@ public class FrontControllerServlet extends HttpServlet {
                                                 PrintWriter out = response.getWriter();
                                                 out.println("<h3>Accès refusé : Vous devez être connecté pour accéder à cette ressource.</h3>");
                                                 out.println("<a href='formconnex'>Se connecter</a>");
-                                                return; 
+                                                return;
                                         }
-                                }
+
+                                        if (authValue != null) {
+                                                String userRole = (currentSession != null)
+                                                                ? (String) currentSession.get(roleKey)
+                                                                : null;
+                                                Auth authAnnotation = null;
+
+                                                if (methodeAExecuter.isAnnotationPresent(Auth.class)) {
+                                                        authAnnotation = methodeAExecuter.getAnnotation(Auth.class);
+                                                } else if (clazz.isAnnotationPresent(Auth.class)) {
+                                                        authAnnotation = clazz.getAnnotation(Auth.class); 
+                                                }
+                                                
+                                                if (authAnnotation != null) {
+                                                        String[] rolesRequis = authAnnotation.role();
+                                                        if (rolesRequis.length > 0) { 
+                                                                boolean validationRole = false;
+
+                                                                for (String r : rolesRequis) { 
+                                                                        if (r.equals(userRole)) {
+                                                                                validationRole = true;
+                                                                                break;
+                                                                        }
+                                                                }
+
+                                                                if (!validationRole) {
+                                                                        response.setContentType("text/html; charset=UTF-8");
+                                                                        PrintWriter out = response.getWriter();
+                                                                        out.println("<h3>Accès refusé : Vous n'avez pas le rôle requis pour accéder à cette ressource.</h3>");
+                                                                        return;
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                } // <--- Fin du bloc if (requiresAuth)
 
                                 ServletContext servletContext = getServletContext();
                                 Object springContext = null;
@@ -250,11 +291,9 @@ public class FrontControllerServlet extends HttpServlet {
                                 String fieldName = field.getName();
                                 Class<?> fieldType = field.getType();
 
-                                // Construire le préfixe complet (ex: employe.mapFile ou employe.adresse)
                                 String fullPrefix = (prefix != null && !prefix.isEmpty()) ? prefix + "." + fieldName
                                                 : fieldName;
 
-                                // C Type simple
                                 if (isSimpleType(fieldType)) {
                                         String reqValue = request.getParameter(fullPrefix);
                                         if (reqValue == null || reqValue.trim().isEmpty()) {
@@ -265,9 +304,7 @@ public class FrontControllerServlet extends HttpServlet {
                                                 Object convertObject = convertSimpleType(fieldType, reqValue);
                                                 field.set(objectInstance, convertObject);
                                         }
-                                }
-                                // Tableaux ou Listes dans l'objet
-                                else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
+                                } else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
                                         Object collectionVal = bindCollectionOrArray(fieldType, fullPrefix, request);
                                         if (collectionVal == null) {
                                                 collectionVal = bindCollectionOrArray(fieldType, fieldName, request);
@@ -286,13 +323,11 @@ public class FrontControllerServlet extends HttpServlet {
                                                         Object mapFileInstance = fieldType.getDeclaredConstructor()
                                                                         .newInstance();
 
-                                                        // Nom d'origine du fichier
                                                         String submittedFileName = filePart.getSubmittedFileName();
                                                         Method setNomMethod = fieldType.getMethod("setNom",
                                                                         String.class);
                                                         setNomMethod.invoke(mapFileInstance, submittedFileName);
 
-                                                        // Extension du fichier
                                                         String extension = "";
                                                         if (submittedFileName != null
                                                                         && submittedFileName.contains(".")) {
@@ -303,7 +338,6 @@ public class FrontControllerServlet extends HttpServlet {
                                                                         String.class);
                                                         setExtensionMethod.invoke(mapFileInstance, extension);
 
-                                                        // Lecture du flux binaire en byte[]
                                                         try (InputStream inputStream = filePart.getInputStream();
                                                                         ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
                                                                 int nRead;
@@ -324,9 +358,7 @@ public class FrontControllerServlet extends HttpServlet {
                                         } catch (Exception e) {
                                                 e.printStackTrace();
                                         }
-                                }
-                                // Objet imbrique
-                                else {
+                                } else {
                                         Object nestedInstance = bindComplexObject(fieldType, fullPrefix, request);
                                         if (nestedInstance != null) {
                                                 field.set(objectInstance, nestedInstance);
@@ -339,7 +371,6 @@ public class FrontControllerServlet extends HttpServlet {
                 }
         }
 
-        // Tableau ou Liste
         private Object bindCollectionOrArray(Class<?> paramType, String paramName, HttpServletRequest request) {
                 String[] reqValues = request.getParameterValues(paramName);
                 if (reqValues == null) {
@@ -389,7 +420,7 @@ public class FrontControllerServlet extends HttpServlet {
                 } else if (type == boolean.class || type == Boolean.class) {
                         return Boolean.parseBoolean(value);
                 }
-                return value; // String par défaut
+                return value;
         }
 
         @Override
