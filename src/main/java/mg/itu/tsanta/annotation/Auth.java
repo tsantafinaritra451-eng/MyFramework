@@ -9,7 +9,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Auth {
     String value() default "";
+<<<<<<< Updated upstream
     String [] role() default {};
+=======
+    List
+>>>>>>> Stashed changes
     
 }
 

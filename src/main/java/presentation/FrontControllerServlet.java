@@ -23,8 +23,13 @@ import jakarta.servlet.http.Part;
 import java.util.function.Function;
 import jakarta.servlet.http.HttpSession;
 
+
 import mg.itu.tsanta.annotation.Api;
 import mg.itu.tsanta.annotation.Auth;
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
 @MultipartConfig(fileSizeThreshold = 1024 * 1024 * 2, maxFileSize = 1024 * 1024 * 10, maxRequestSize = 1024 * 1024 * 50)
 public class FrontControllerServlet extends HttpServlet {
@@ -50,9 +55,13 @@ public class FrontControllerServlet extends HttpServlet {
                 this.prefix = getServletContext().getInitParameter("viewPrefix");
                 this.suffix = getServletContext().getInitParameter("viewSuffix");
 
-                this.authSessionKey = getServletContext().getInitParameter("authSessionKey");
+                this.authSessionKey = getInitParameter("authSessionKey");
                 if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
                         this.authSessionKey = "utilisateurConnecte";
+                }
+                this.roleKey = getInitParameter("roleKey");
+                if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
+                        this.authSessionKey = "roleUtilisateur";
                 }
 
                 this.roleKey = getServletContext().getInitParameter("roleKey");
@@ -93,7 +102,6 @@ public class FrontControllerServlet extends HttpServlet {
                                         MySession currentSession = null;
 
                                         if (nativeRequestSession != null) {
-                                                @SuppressWarnings("unchecked")
                                                 Map<HttpSession, MySession> instanceSessions = (Map<HttpSession, MySession>) getServletContext()
                                                                 .getAttribute(SESSION_MAP_KEY);
 
@@ -111,6 +119,7 @@ public class FrontControllerServlet extends HttpServlet {
                                                 out.println("<h3>Accès refusé : Vous devez être connecté pour accéder à cette ressource.</h3>");
                                                 out.println("<a href='formconnex'>Se connecter</a>");
                                                 return;
+<<<<<<< Updated upstream
                                         }
 
                                         String userRole = (currentSession != null)
@@ -143,8 +152,51 @@ public class FrontControllerServlet extends HttpServlet {
                                                                 return;
                                                         }
                                                 }
+=======
+>>>>>>> Stashed changes
                                         }
-                                }
+                                        // Role est liste dans annotation Auth
+                                        if (authValue != null) {
+                                                String userRole = (String) currentSession.get(roleKey);
+                                                String chemin = mg.itu.tsanta.annotation;
+                                                chemin.Auth AuthAnnotation = null;
+
+                                                if (methodeAExecuter.isAnnotationPresent(
+                                                        chemin.Auth.class)){
+                                                                        AuthAnnotation = methodeAExecuter.getAnnotation(chemin.Auth);
+                                                                }else if(clazz.isAnnotationPresent(
+                                                                chemin.Auth.class)){
+                                                                        AuthAnnotation = methodeAExecuter.getAnnotation(chemin.Auth);
+
+                                                                }
+
+                                                                if(AuthAnnotation != null){
+                                                                        String [] role = AuthAnnotation.role();
+                                                                        if(role.length > 0) 
+                                                                                boolean validationRole = false;
+                                                                                for (String roles : validationRole){
+                                                                                        if(roles.equals(userRole)){
+                                                                                                validationRole = true;
+                                                                                                break;
+                                                                                        }
+
+                                                                                }
+                                                                        if (!validationRole) {
+                                                                                response.setContentType("text/html; charset=UTF-8");
+                                                                                PrintWriter out = response.getWriter();
+                                                                                out.println("<h3>Accès refusé : Vous n'avez pas le rôle requis pour accéder à cette ressource.</h3>");
+                                                                                return; // On bloque l'accès
+                                                                        }
+
+
+                                                                }
+
+                                                        
+                                                    
+
+                                                }
+                                        }
+
 
                                 ServletContext servletContext = getServletContext();
                                 Object springContext = null;
@@ -216,18 +268,19 @@ public class FrontControllerServlet extends HttpServlet {
                         }
                 }
 
-                response.setContentType("text/html; charset=UTF-8");
-                PrintWriter out = response.getWriter();
-                out.println("<h3> Aucune méthode ne correspond à l'URL : " + url + " [" + methodHttp + "]</h3>");
-                out.println("<h3>Liste des routes disponibles :</h3>");
-                for (Map.Entry<UrlMethod, Mapping> entry : listUrl.entrySet()) {
-                        UrlMethod urlDiso = entry.getKey();
-                        Mapping mappingDispo = entry.getValue();
+        response.setContentType("text/html; charset=UTF-8");
 
-                        out.println("   URL : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]<br>");
-                        out.println("   Méthode : " + mappingDispo.getMethode().getName() + "()<br>");
-                        out.println("   Classe : " + mappingDispo.getControllerInstance().getName() + "<br><br>");
-                }
+        PrintWriter out = response
+                        .getWriter();out.println("<h3> Aucune méthode ne correspond à l'URL : "+url+" ["+methodHttp+"]</h3>");out.println("<h3>Liste des routes disponibles :</h3>");for(
+        Map.Entry<UrlMethod, Mapping> entry:listUrl.entrySet())
+        {
+                UrlMethod urlDiso = entry.getKey();
+                Mapping mappingDispo = entry.getValue();
+
+                out.println("   URL : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]<br>");
+                out.println("   Méthode : " + mappingDispo.getMethode().getName() + "()<br>");
+                out.println("   Classe : " + mappingDispo.getControllerInstance().getName() + "<br><br>");
+        }
         }
 
         // parametre
