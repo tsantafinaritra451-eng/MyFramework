@@ -23,13 +23,8 @@ import jakarta.servlet.http.Part;
 import java.util.function.Function;
 import jakarta.servlet.http.HttpSession;
 
-
 import mg.itu.tsanta.annotation.Api;
 import mg.itu.tsanta.annotation.Auth;
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 
 @MultipartConfig(fileSizeThreshold = 1024 * 1024 * 2, maxFileSize = 1024 * 1024 * 10, maxRequestSize = 1024 * 1024 * 50)
 public class FrontControllerServlet extends HttpServlet {
@@ -42,8 +37,7 @@ public class FrontControllerServlet extends HttpServlet {
         private String prefix;
         private String suffix;
         private String authSessionKey;
-        private String roleKey;
-
+        private String roleKey; // <--- AJOUTÉ ICI POUR CORRIGER L'ERREUR DE COMPILATION
         private static final String SESSION_MAP_KEY = "frameworkInstanceSessions";
 
         @Override
@@ -55,13 +49,9 @@ public class FrontControllerServlet extends HttpServlet {
                 this.prefix = getServletContext().getInitParameter("viewPrefix");
                 this.suffix = getServletContext().getInitParameter("viewSuffix");
 
-                this.authSessionKey = getInitParameter("authSessionKey");
+                this.authSessionKey = getServletContext().getInitParameter("authSessionKey");
                 if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
                         this.authSessionKey = "utilisateurConnecte";
-                }
-                this.roleKey = getInitParameter("roleKey");
-                if (this.authSessionKey == null || this.authSessionKey.isEmpty()) {
-                        this.authSessionKey = "roleUtilisateur";
                 }
 
                 this.roleKey = getServletContext().getInitParameter("roleKey");
@@ -94,14 +84,16 @@ public class FrontControllerServlet extends HttpServlet {
                                 Object controllerInstance = clazz.getDeclaredConstructor().newInstance();
                                 Method methodeAExecuter = mappingTrouve.getMethode();
 
-                                boolean requiresAuth = clazz.isAnnotationPresent(Auth.class)
-                                                || methodeAExecuter.isAnnotationPresent(Auth.class);
+                                boolean requiresAuth = clazz.isAnnotationPresent(mg.itu.tsanta.annotation.Auth.class)
+                                                || methodeAExecuter.isAnnotationPresent(
+                                                                mg.itu.tsanta.annotation.Auth.class);
 
                                 if (requiresAuth) {
                                         HttpSession nativeRequestSession = request.getSession(false);
                                         MySession currentSession = null;
 
                                         if (nativeRequestSession != null) {
+                                                @SuppressWarnings("unchecked")
                                                 Map<HttpSession, MySession> instanceSessions = (Map<HttpSession, MySession>) getServletContext()
                                                                 .getAttribute(SESSION_MAP_KEY);
 
@@ -119,84 +111,42 @@ public class FrontControllerServlet extends HttpServlet {
                                                 out.println("<h3>Accès refusé : Vous devez être connecté pour accéder à cette ressource.</h3>");
                                                 out.println("<a href='formconnex'>Se connecter</a>");
                                                 return;
-<<<<<<< Updated upstream
                                         }
 
-                                        String userRole = (currentSession != null)
-                                                        ? (String) currentSession.get(roleKey)
-                                                        : null;
-                                        Auth authAnnotation = null;
-
-                                        if (methodeAExecuter.isAnnotationPresent(Auth.class)) {
-                                                authAnnotation = methodeAExecuter.getAnnotation(Auth.class);
-                                        } else if (clazz.isAnnotationPresent(Auth.class)) {
-                                                authAnnotation = clazz.getAnnotation(Auth.class);
-                                        }
-
-                                        if (authAnnotation != null) {
-                                                String[] rolesRequis = authAnnotation.role();
-                                                if (rolesRequis.length > 0) {
-                                                        boolean validationRole = false;
-
-                                                        for (String r : rolesRequis) {
-                                                                if (r.equals(userRole)) {
-                                                                        validationRole = true;
-                                                                        break;
-                                                                }
-                                                        }
-
-                                                        if (!validationRole) {
-                                                                response.setContentType("text/html; charset=UTF-8");
-                                                                PrintWriter out = response.getWriter();
-                                                                out.println("<h3>Accès refusé : Vous n'avez pas le rôle requis pour accéder à cette ressource.</h3>");
-                                                                return;
-                                                        }
-                                                }
-=======
->>>>>>> Stashed changes
-                                        }
-                                        // Role est liste dans annotation Auth
                                         if (authValue != null) {
-                                                String userRole = (String) currentSession.get(roleKey);
-                                                String chemin = mg.itu.tsanta.annotation;
-                                                chemin.Auth AuthAnnotation = null;
+                                                String userRole = (currentSession != null)
+                                                                ? (String) currentSession.get(roleKey)
+                                                                : null;
+                                                Auth authAnnotation = null;
 
-                                                if (methodeAExecuter.isAnnotationPresent(
-                                                        chemin.Auth.class)){
-                                                                        AuthAnnotation = methodeAExecuter.getAnnotation(chemin.Auth);
-                                                                }else if(clazz.isAnnotationPresent(
-                                                                chemin.Auth.class)){
-                                                                        AuthAnnotation = methodeAExecuter.getAnnotation(chemin.Auth);
+                                                if (methodeAExecuter.isAnnotationPresent(Auth.class)) {
+                                                        authAnnotation = methodeAExecuter.getAnnotation(Auth.class);
+                                                } else if (clazz.isAnnotationPresent(Auth.class)) {
+                                                        authAnnotation = clazz.getAnnotation(Auth.class); 
+                                                }
+                                                
+                                                if (authAnnotation != null) {
+                                                        String[] rolesRequis = authAnnotation.role();
+                                                        if (rolesRequis.length > 0) { 
+                                                                boolean validationRole = false;
 
-                                                                }
-
-                                                                if(AuthAnnotation != null){
-                                                                        String [] role = AuthAnnotation.role();
-                                                                        if(role.length > 0) 
-                                                                                boolean validationRole = false;
-                                                                                for (String roles : validationRole){
-                                                                                        if(roles.equals(userRole)){
-                                                                                                validationRole = true;
-                                                                                                break;
-                                                                                        }
-
-                                                                                }
-                                                                        if (!validationRole) {
-                                                                                response.setContentType("text/html; charset=UTF-8");
-                                                                                PrintWriter out = response.getWriter();
-                                                                                out.println("<h3>Accès refusé : Vous n'avez pas le rôle requis pour accéder à cette ressource.</h3>");
-                                                                                return; // On bloque l'accès
+                                                                for (String r : rolesRequis) { 
+                                                                        if (r.equals(userRole)) {
+                                                                                validationRole = true;
+                                                                                break;
                                                                         }
-
-
                                                                 }
 
-                                                        
-                                                    
-
+                                                                if (!validationRole) {
+                                                                        response.setContentType("text/html; charset=UTF-8");
+                                                                        PrintWriter out = response.getWriter();
+                                                                        out.println("<h3>Accès refusé : Vous n'avez pas le rôle requis pour accéder à cette ressource.</h3>");
+                                                                        return;
+                                                                }
+                                                        }
                                                 }
                                         }
-
+                                } // <--- Fin du bloc if (requiresAuth)
 
                                 ServletContext servletContext = getServletContext();
                                 Object springContext = null;
@@ -204,7 +154,7 @@ public class FrontControllerServlet extends HttpServlet {
                                         springContext = servletContext.getAttribute(
                                                         "org.springframework.web.context.WebApplicationContext.ROOT");
                                 } catch (Exception e) {
-                                        // Spring non présent, on ignore
+
                                 }
 
                                 Parameter[] parametres = methodeAExecuter.getParameters();
@@ -268,19 +218,18 @@ public class FrontControllerServlet extends HttpServlet {
                         }
                 }
 
-        response.setContentType("text/html; charset=UTF-8");
+                response.setContentType("text/html; charset=UTF-8");
+                PrintWriter out = response.getWriter();
+                out.println("<h3> Aucune méthode ne correspond à l'URL : " + url + " [" + methodHttp + "]</h3>");
+                out.println("<h3>Liste des routes disponibles :</h3>");
+                for (Map.Entry<UrlMethod, Mapping> entry : listUrl.entrySet()) {
+                        UrlMethod urlDiso = entry.getKey();
+                        Mapping mappingDispo = entry.getValue();
 
-        PrintWriter out = response
-                        .getWriter();out.println("<h3> Aucune méthode ne correspond à l'URL : "+url+" ["+methodHttp+"]</h3>");out.println("<h3>Liste des routes disponibles :</h3>");for(
-        Map.Entry<UrlMethod, Mapping> entry:listUrl.entrySet())
-        {
-                UrlMethod urlDiso = entry.getKey();
-                Mapping mappingDispo = entry.getValue();
-
-                out.println("   URL : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]<br>");
-                out.println("   Méthode : " + mappingDispo.getMethode().getName() + "()<br>");
-                out.println("   Classe : " + mappingDispo.getControllerInstance().getName() + "<br><br>");
-        }
+                        out.println("   URL : " + urlDiso.getUrl() + " [" + urlDiso.getMethodHttp() + "]<br>");
+                        out.println("   Méthode : " + mappingDispo.getMethode().getName() + "()<br>");
+                        out.println("   Classe : " + mappingDispo.getControllerInstance().getName() + "<br><br>");
+                }
         }
 
         // parametre
@@ -342,11 +291,9 @@ public class FrontControllerServlet extends HttpServlet {
                                 String fieldName = field.getName();
                                 Class<?> fieldType = field.getType();
 
-                                // Construire le préfixe complet (ex: employe.mapFile ou employe.adresse)
                                 String fullPrefix = (prefix != null && !prefix.isEmpty()) ? prefix + "." + fieldName
                                                 : fieldName;
 
-                                // C Type simple
                                 if (isSimpleType(fieldType)) {
                                         String reqValue = request.getParameter(fullPrefix);
                                         if (reqValue == null || reqValue.trim().isEmpty()) {
@@ -357,9 +304,7 @@ public class FrontControllerServlet extends HttpServlet {
                                                 Object convertObject = convertSimpleType(fieldType, reqValue);
                                                 field.set(objectInstance, convertObject);
                                         }
-                                }
-                                // Tableaux ou Listes dans l'objet
-                                else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
+                                } else if (fieldType.isArray() || java.util.List.class.isAssignableFrom(fieldType)) {
                                         Object collectionVal = bindCollectionOrArray(fieldType, fullPrefix, request);
                                         if (collectionVal == null) {
                                                 collectionVal = bindCollectionOrArray(fieldType, fieldName, request);
@@ -378,13 +323,11 @@ public class FrontControllerServlet extends HttpServlet {
                                                         Object mapFileInstance = fieldType.getDeclaredConstructor()
                                                                         .newInstance();
 
-                                                        // Nom d'origine du fichier
                                                         String submittedFileName = filePart.getSubmittedFileName();
                                                         Method setNomMethod = fieldType.getMethod("setNom",
                                                                         String.class);
                                                         setNomMethod.invoke(mapFileInstance, submittedFileName);
 
-                                                        // Extension du fichier
                                                         String extension = "";
                                                         if (submittedFileName != null
                                                                         && submittedFileName.contains(".")) {
@@ -395,7 +338,6 @@ public class FrontControllerServlet extends HttpServlet {
                                                                         String.class);
                                                         setExtensionMethod.invoke(mapFileInstance, extension);
 
-                                                        // Lecture du flux binaire en byte[]
                                                         try (InputStream inputStream = filePart.getInputStream();
                                                                         ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
                                                                 int nRead;
@@ -416,9 +358,7 @@ public class FrontControllerServlet extends HttpServlet {
                                         } catch (Exception e) {
                                                 e.printStackTrace();
                                         }
-                                }
-                                // Objet imbrique
-                                else {
+                                } else {
                                         Object nestedInstance = bindComplexObject(fieldType, fullPrefix, request);
                                         if (nestedInstance != null) {
                                                 field.set(objectInstance, nestedInstance);
@@ -431,7 +371,6 @@ public class FrontControllerServlet extends HttpServlet {
                 }
         }
 
-        // Tableau ou Liste
         private Object bindCollectionOrArray(Class<?> paramType, String paramName, HttpServletRequest request) {
                 String[] reqValues = request.getParameterValues(paramName);
                 if (reqValues == null) {
@@ -481,7 +420,7 @@ public class FrontControllerServlet extends HttpServlet {
                 } else if (type == boolean.class || type == Boolean.class) {
                         return Boolean.parseBoolean(value);
                 }
-                return value; // String par défaut
+                return value;
         }
 
         @Override
