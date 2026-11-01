@@ -88,6 +88,24 @@ public class FrontControllerServlet extends HttpServlet {
                                                 || methodeAExecuter.isAnnotationPresent(
                                                                 mg.itu.tsanta.annotation.Auth.class);
 
+                                Map<Class<?>, Object> controllerInstances = (Map <Class<?>, Object>) getServletContext().getAttribute("controllerInstances");
+                                
+                                
+
+                                if(controllerInstances == null){
+                                        controllerInstances = new ConcurrentHashMap();
+                                        getServletContext().setAttribute("controllerInstace", controllerInstances);
+                                        System.out.println(">>> [FRONT SINGLETON] NEW instance créée pour : " + clazz.getName() + " <<<");
+
+                                }
+
+                                Object controllerInstace = controllerInstances.get(clazz);
+                                if(controllerInstace == null){
+                                        controllerInstance = clazz.getDeclaredConstructor().newInstance();
+                                        controllerInstances.put(clazz, controllerInstance);
+                                        System.out.println(">>> [FRONT SINGLETON] Récupération de l'instance existante pour : " + clazz.getName() + " <<<");
+                                }
+
                                 if (requiresAuth) {
                                         HttpSession nativeRequestSession = request.getSession(false);
                                         MySession currentSession = null;
