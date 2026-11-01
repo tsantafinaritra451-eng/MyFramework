@@ -88,12 +88,23 @@ public class FrontControllerServlet extends HttpServlet {
                                 boolean requiresAuth = clazz.isAnnotationPresent(Auth.class)
                                                 || methodeAExecuter.isAnnotationPresent(Auth.class);
 
-                                Map<class<?>, Object> controllers = (Map(class<?>, Object).getServletContext).getAttribute(controllerInstance);
-                                Object Controller = controllers.computeIsAbsent(clazz, c ){
-                                        System.out.println("controller cree" + getNom());
-                                        controllers.put(Controller);
+                                Map<Class<?>, Object> controllerInstances = (Map <Class<?>, Object>) getServletContext().getAttribute("controllerInstances");
+                                
+                                
+
+                                if(controllerInstances == null){
+                                        controllerInstances = new ConcurrentHashMap();
+                                        getServletContext().setAttribute("controllerInstace", controllerInstances);
+                                        System.out.println(">>> [FRONT SINGLETON] NEW instance créée pour : " + clazz.getName() + " <<<");
+
                                 }
-                                if(!controllerInstance)
+
+                                Object controllerInstace = controllerInstances.get(clazz);
+                                if(controllerInstace == null){
+                                        controllerInstance = clazz.getDeclaredConstructor().newInstance();
+                                        controllerInstances.put(clazz, controllerInstance);
+                                        System.out.println(">>> [FRONT SINGLETON] Récupération de l'instance existante pour : " + clazz.getName() + " <<<");
+                                }
 
                                 if (requiresAuth) {
                                         HttpSession nativeRequestSession = request.getSession(false);
